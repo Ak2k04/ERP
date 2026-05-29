@@ -1,0 +1,434 @@
+// backend/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String    @id @default(cuid())
+  fullName          String
+  email             String    @unique
+  passwordHash      String?   // null for OAuth users
+  phone             String?
+  role              String    // SUPER_ADMIN, DEPARTMENT_ADMIN
+  department        String?   // PRODUCTION, STORES
+  employeeId        String?
+  reason            String?   // Department Admin access reason
+  status            String    @default("PENDING_VERIFICATION") // PENDING_VERIFICATION, PENDING_APPROVAL, ACTIVE, REJECTED, DEACTIVATED
+  isActive          Boolean   @default(true)
+  emailVerified     Boolean   @default(false)
+  emailVerifiedAt   DateTime?
+  approvedBy        String?   // SuperAdmin user id
+  approvedAt        DateTime?
+  rejectedAt        DateTime?
+  rejectionReason   String?
+  lastLoginAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tokens            Token[]
+  oauthAccounts     OAuthAccount[]
+}
+
+model Token {
+  id          String     @id @default(cuid())
+  userId      String
+  type        String     // EMAIL_VERIFICATION, PASSWORD_RESET, REFRESH
+  tokenHash   String     @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime   @default(now())
+  user        User       @relation(fields: [userId], references: [id])
+}
+
+model OAuthAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String   // e.g., "google"
+  providerAccountId String
+  user              User     @relation(fields: [userId], references: [id])
+  @@unique([provider, providerAccountId])
+}
+
+// --- PRODUCTION MODULE ---
+
+model Material {
+  id              String   @id @default(cuid())
+  category        String?
+  storageLocation String?
+  partNumber      String   @unique
+  productName     String
+  unitRate        Float?
+  unit            String?
+  currentStock    Float?
+  minimumStock    Float?
+  reorderLevel    Float?
+  maximumStock    Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  bomItems        BomItem[]
+}
+
+model Bom {
+  id            String      @id @default(cuid())
+  bomName       String      @unique
+  documentRef   String
+  version       String      @default("Ver 0")
+  product       String
+  productCode   String?
+  description   String?
+  defaultAcHead String?
+  imageUrl      String?
+  status        String      @default("DRAFT") // DRAFT, ACTIVE, ARCHIVED
+  createdById   String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  lineItems     BomItem[]
+  signatures    BomSignature?
+  projectBoms   ProjectBom[]
+  generations   GenerationRecord[]
+}
+
+model BomItem {
+  id              String   @id @default(cuid())
+  bomId           String
+  materialId      String?
+  partCode        String
+  acHead          String?
+  itemsComponents String
+  qty             Float
+  qtyReqd         Float
+  qtyIssd         Float    @default(0)
+  balance         Float    @default(0)
+  sortOrder       Int      @default(0)
+  
+  bom             Bom      @relation(fields: [bomId], references: [id], onDelete: Cascade)
+  material        Material? @relation(fields: [materialId], references: [id])
+}
+
+model BomSignature {
+  id          String   @id @default(cuid())
+  bomId       String   @unique
+  indentedBy  String?
+  receivedBy  String?
+  issuedBy    String?
+  reviewedBy  String?
+  issuedDate  DateTime?
+  
+  bom         Bom      @relation(fields: [bomId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id              String        @id @default(cuid())
+  projectName     String        @unique
+  projectCode     String?
+  customerName    String
+  productName     String
+  productCode     String?
+  costCode        String?
+  startDate       DateTime?
+  endDate         DateTime?
+  batchSize       Int?
+  description     String?
+  status          String        @default("ACTIVE") // ACTIVE, ON_HOLD, COMPLETED, CANCELLED
+  createdById     String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  projectBoms     ProjectBom[]
+  assignees       ProjectAssignee[]
+  generations     GenerationRecord[]
+}
+
+model ProjectBom {
+  id          String   @id @default(cuid())
+  projectId   String
+  bomId       String
+  linkedAt    DateTime @default(now())
+  linkedById  String
+  
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  bom         Bom      @relation(fields: [bomId], references: [id], onDelete: Cascade)
+  @@unique([projectId, bomId])
+}
+
+model ProjectAssignee {
+  id        String  @id @default(cuid())
+  projectId String
+  userId    String
+  
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, userId])
+}
+
+model GenerationRecord {
+  id          String   @id @default(cuid())
+  projectId   String
+  bomId       String
+  generatedBy String
+  generatedAt DateTime @default(now())
+  pdfPath     String?
+  data        String   // JSON string of all generation inputs
+  
+  project     Project  @relation(fields: [projectId], references: [id])
+  bom         Bom      @relation(fields: [bomId], references: [id])
+}
+
+// --- Stores Department ---
+
+model Category {
+  id        String           @id @default(cuid())
+  name      String           @unique
+  color     String           // Hex color auto-assigned
+  createdAt DateTime         @default(now())
+  materials StoresMaterial[]
+}
+
+model StoresMaterial {
+  id              String        @id @default(cuid())
+  storageLocation String?
+  partNumber      String        @unique
+  productName     String
+  categoryId      String?
+  unitRate        Float?
+  unit            String?
+  openingStock    Float         @default(0)
+  closingStock    Float         @default(0)
+  reservedStock   Float         @default(0)
+  minimumStock    Float?
+  reorderLevel    Float?
+  maximumStock    Float?
+  lastMovementAt  DateTime?
+  lastMovementType MovementType?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  category        Category?         @relation(fields: [categoryId], references: [id])
+  ledgerEntries   DailyLedger[]
+  issueItems      IssueItem[]
+  poItems         PurchaseOrderItem[]
+}
+
+enum MovementType {
+  IN
+  OUT
+  ADJUSTMENT
+  OPENING_BALANCE
+}
+
+model DailyLedger {
+  id              String       @id @default(cuid())
+  materialId      String
+  date            DateTime     // Store as date only
+  movementType    MovementType
+  quantity        Float        // Positive for IN, negative for OUT
+  referenceType   RefType?
+  referenceId     String?
+  referenceCode   String?
+  runningBalance  Float
+  notes           String?
+  createdById     String
+  createdAt       DateTime     @default(now())
+  
+  material        StoresMaterial @relation(fields: [materialId], references: [id])
+}
+
+enum RefType {
+  BOM_ISSUE
+  PO_RECEIPT
+  MANUAL_IN
+  MANUAL_OUT
+  ADJUSTMENT
+  RETURN
+  OPENING_BALANCE
+}
+
+model IssueRequest {
+  id            String        @id @default(cuid())
+  projectId     String
+  bomId         String
+  requestedById String
+  requestedAt   DateTime      @default(now())
+  issuedById    String?
+  issuedAt      DateTime?
+  status        IssueStatus   @default(PENDING)
+  notes         String?
+  
+  issueItems    IssueItem[]
+  pendingIssues PendingIssue[]
+}
+
+model IssueItem {
+  id              String   @id @default(cuid())
+  issueRequestId  String
+  materialId      String
+  partCode        String
+  componentName   String
+  qtyRequired     Float
+  qtyIssued       Float    @default(0)
+  qtyPending      Float    @default(0)
+  isFullyIssued   Boolean  @default(false)
+  
+  issueRequest    IssueRequest @relation(fields: [issueRequestId], references: [id])
+  material        StoresMaterial @relation(fields: [materialId], references: [id])
+}
+
+model PendingIssue {
+  id              String        @id @default(cuid())
+  issueRequestId  String
+  materialId      String
+  qtyPending      Float
+  status          PendingStatus @default(WAITING)
+  createdAt       DateTime      @default(now())
+  
+  issueRequest    IssueRequest @relation(fields: [issueRequestId], references: [id])
+}
+
+enum IssueStatus {
+  PENDING
+  PARTIAL
+  COMPLETE
+  CANCELLED
+}
+
+enum PendingStatus {
+  WAITING
+  READY
+  APPROVED
+  ISSUED
+  CANCELLED
+}
+
+model Vendor {
+  id             String    @id @default(cuid())
+  vendorName     String    @unique
+  contactPerson  String?
+  phone          String
+  email          String?
+  gstNumber      String?
+  panNumber      String?
+  paymentTerms   String?
+  address1       String?
+  address2       String?
+  city           String?
+  state          String?
+  pinCode        String?
+  bankName       String?
+  bankAccount    String?
+  ifscCode       String?
+  notes          String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  purchaseOrders PurchaseOrder[]
+}
+
+model PurchaseOrder {
+  id               String     @id @default(cuid())
+  poNumber         String     @unique
+  vendorId         String
+  deliverTo        String?
+  poDate           DateTime
+  expectedDelivery DateTime?
+  notes            String?
+  status           PoStatus   @default(DRAFT)
+  subtotal         Float      @default(0)
+  sgstPercent      Float      @default(9)
+  cgstPercent      Float      @default(9)
+  sgstAmount       Float      @default(0)
+  cgstAmount       Float      @default(0)
+  totalAmount      Float      @default(0)
+  createdById      String
+  confirmedAt      DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  
+  vendor           Vendor          @relation(fields: [vendorId], references: [id])
+  items            PurchaseOrderItem[]
+  receipts         PoReceipt[]
+}
+
+model PurchaseOrderItem {
+  id              String   @id @default(cuid())
+  poId            String
+  materialId      String?
+  description     String
+  qty             Float
+  rate            Float
+  amount          Float
+  qtyReceived     Float    @default(0)
+  
+  purchaseOrder   PurchaseOrder @relation(fields: [poId], references: [id])
+  material        StoresMaterial? @relation(fields: [materialId], references: [id])
+}
+
+model PoReceipt {
+  id           String   @id @default(cuid())
+  poId         String
+  receivedById String
+  receivedAt   DateTime @default(now())
+  notes        String?
+  items        PoReceiptItem[]
+  purchaseOrder PurchaseOrder @relation(fields: [poId], references: [id])
+}
+
+model PoReceiptItem {
+  id          String  @id @default(cuid())
+  receiptId   String
+  poItemId    String
+  qtyReceived Float
+  receipt     PoReceipt @relation(fields: [receiptId], references: [id])
+}
+
+enum PoStatus {
+  DRAFT
+  CONFIRMED
+  RECEIVED
+  COMPLETED
+  CANCELLED
+}
+
+model Alert {
+  id          String      @id @default(cuid())
+  type        AlertType
+  severity    AlertSeverity
+  title       String
+  message     String
+  userId      String?     
+  referenceId String?     
+  refType     String?
+  isRead      Boolean     @default(false)
+  readAt      DateTime?
+  actionUrl   String?
+  createdAt   DateTime    @default(now())
+}
+
+enum AlertType {
+  CRITICAL_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  STOCK_RECEIVED
+  MATERIAL_REQUESTED
+  PENDING_NOW_AVAILABLE
+  ISSUE_COMPLETED
+  PO_CONFIRMED
+  PO_OVERDUE
+  LEDGER_MISMATCH
+  NEW_VENDOR_ADDED
+}
+
+enum AlertSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  INFO
+  LOW
+}

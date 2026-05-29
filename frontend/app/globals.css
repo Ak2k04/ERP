@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+@theme {
+  /* Royal Blue Brand */
+  --color-brand: #1a3cff;
+  --color-brand-dark: #1430cc;
+  --color-brand-light: #e8edff;
+  --color-brand-subtle: #f0f4ff;
+
+  /* Theme-aware colors (Light Mode defaults) */
+  --color-background: #f8fafc;
+  --color-foreground: #0f172a;
+  
+  --color-card: #ffffff;
+  --color-card-foreground: #0f172a;
+  --color-card-border: #e2e8f0;
+
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0f172a;
+
+  --color-primary: #1a3cff;
+  --color-primary-foreground: #ffffff;
+
+  --color-secondary: #e8edff;
+  --color-secondary-foreground: #1a3cff;
+
+  --color-muted: #f0f4ff;
+  --color-muted-foreground: #475569;
+
+  --color-accent: #e8edff;
+  --color-accent-foreground: #1a3cff;
+
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
+
+  --color-border: #e2e8f0;
+  --color-input: #ffffff;
+  --color-input-border: #e2e8f0;
+  --color-ring: #1a3cff;
+
+  /* Sidebar Specific (Light Mode) */
+  --color-sidebar-bg: #1a3cff;
+  --color-sidebar-foreground: #ffffff;
+  --color-sidebar-icon: #c7d4ff;
+  --color-sidebar-active-bg: rgba(255, 255, 255, 0.1);
+  --color-sidebar-active-foreground: #ffffff;
+  --color-sidebar-hover-bg: rgba(255, 255, 255, 0.05);
+  --color-sidebar-section: #93a8ff;
+
+  /* Header Specific (Light Mode) */
+  --color-header-bg: #ffffff;
+  --color-header-border: #e2e8f0;
+  --color-header-foreground: #0f172a;
+
+  /* Status Badges */
+  --color-badge-bg: #e8edff;
+  --color-badge-foreground: #1a3cff;
+
+  --radius-lg: 0.75rem;
+  --radius-md: 0.5rem;
+  --radius-sm: 0.25rem;
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height); }
+  }
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height); }
+    to { height: 0; }
+  }
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Dark Mode Overrides */
+.dark {
+  --color-background: #0d1117;
+  --color-foreground: #f1f5f9;
+
+  --color-card: #111827;
+  --color-card-foreground: #f1f5f9;
+  --color-card-border: #1f2937;
+
+  --color-popover: #111827;
+  --color-popover-foreground: #f1f5f9;
+
+  --color-primary: #1a3cff;
+  --color-primary-foreground: #ffffff;
+
+  --color-secondary: #1a3cff22;
+  --color-secondary-foreground: #7eb3ff;
+
+  --color-muted: #1f2937;
+  --color-muted-foreground: #94a3b8;
+
+  --color-accent: #1a3cff33;
+  --color-accent-foreground: #7eb3ff;
+
+  --color-border: #1f2937;
+  --color-input: #1f2937;
+  --color-input-border: #374151;
+  --color-ring: #1a3cff;
+
+  /* Sidebar Specific (Dark Mode) */
+  --color-sidebar-bg: #0f1729;
+  --color-sidebar-foreground: #e2e8f0;
+  --color-sidebar-icon: #7b93d4;
+  --color-sidebar-active-bg: #1a3cff33;
+  --color-sidebar-active-foreground: #ffffff;
+  --color-sidebar-hover-bg: rgba(255, 255, 255, 0.03);
+  --color-sidebar-section: #4a6096;
+
+  /* Header Specific (Dark Mode) */
+  --color-header-bg: #111827;
+  --color-header-border: #1f2937;
+  --color-header-foreground: #f1f5f9;
+
+  /* Status Badges */
+  --color-badge-bg: #1a3cff22;
+  --color-badge-foreground: #7eb3ff;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground transition-colors duration-200;
+  }
+}
+
+@layer utilities {
+  .sidebar-transition {
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
